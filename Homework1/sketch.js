@@ -11,7 +11,10 @@ let earth;
 let earthX;
 let earthY;
 
+// 위성 만들기...
 let sa;
+let sb;
+let sc;
 
 // 별 만들기...
 let angle1 = 0;
@@ -28,6 +31,8 @@ function setup() {
   earth = Bodies.circle(earthX, earthY, 100, {isStatic:true});
 
   sa = Bodies.circle(width/3, 100, 10);
+  sb = Bodies.circle(width/2, 800, 10);
+  sc = Bodies.circle((width*3)/4,height/2, 10);
 
   let margin = 20;
 
@@ -37,17 +42,21 @@ function setup() {
     Bodies.rectangle(margin, height/2, margin, height, {isStatic:true}), //왼쪽 벽
     Bodies.rectangle(width-margin, height/2, margin, height, {isStatic:true}), //오른쪽 벽
     earth,
-    sa
+    sa,
+    sb,
+    sc
 ]);
 }
+
+
 
 function gravity(body) {
   let dx = earthX - body.position.x;
   let dy = earthY - body.position.y;
 
   Body.applyForce(body, body.position, {
-    x: dx * 0.00005,
-    y: dy * 0.00005
+    x: dx * 0.0001,
+    y: dy * 0.0001
   });
 }
 
@@ -55,7 +64,7 @@ function draw() {
   background(10);
 
   //earth
-  fill ("#aaffff");
+  fill ("#1504fc");
   noStroke();
   circle (earth.position.x, earth.position.y, 100);
 
@@ -65,6 +74,12 @@ function draw() {
   //satellites
   fill ("#ffaa88");
   circle (sa.position.x, sa.position.y, 10);
+
+  fill ("#fdff88");
+  circle (sb.position.x, sb.position.y, 10);
+
+  fill ("#88ff8c");
+  circle (sc.position.x, sc.position.y, 10);
 
   
   stroke(255);
@@ -110,6 +125,8 @@ function draw() {
   
   // satellites에 중력 적용
   gravity(sa);
+  gravity(sb);
+  gravity(sc);
 
   Engine.update(engine);
 

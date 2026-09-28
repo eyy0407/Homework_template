@@ -6,10 +6,14 @@ const Body = Matter.Body;
 // 엔진 객체 생성
 let engine;
 
+// 지구 만들기...
 let earth;
 let earthX;
 let earthY;
 
+let sa;
+
+// 별 만들기...
 let angle1 = 0;
 let angle2 = 0;
 let angle3 = 0;
@@ -23,6 +27,8 @@ function setup() {
   earthY = height/2;
   earth = Bodies.circle(earthX, earthY, 100, {isStatic:true});
 
+  sa = Bodies.circle(width/3, 100, 10);
+
   let margin = 20;
 
   Composite.add(engine.world, [
@@ -30,7 +36,19 @@ function setup() {
     Bodies.rectangle(width/2, margin, width, margin, {isStatic:true}), //천장
     Bodies.rectangle(margin, height/2, margin, height, {isStatic:true}), //왼쪽 벽
     Bodies.rectangle(width-margin, height/2, margin, height, {isStatic:true}), //오른쪽 벽
-    ]);
+    earth,
+    sa
+]);
+}
+
+function gravity(body) {
+  let dx = earthX - body.position.x;
+  let dy = earthY - body.position.y;
+
+  Body.applyForce(body, body.position, {
+    x: dx * 0.00005,
+    y: dy * 0.00005
+  });
 }
 
 function draw() {
@@ -45,14 +63,15 @@ function draw() {
   let lineY = height/6
 
   //satellites
-  
+  fill ("#ffaa88");
+  circle (sa.position.x, sa.position.y, 10);
 
   
   stroke(255);
 
   //star 1
   push ();
-  translate (300, 450);
+  translate (width/6, (height*1)/2);
   rotate (radians(angle1));
   angle1 = angle1+2;
 
@@ -65,7 +84,7 @@ function draw() {
 
   // star 2
   push ();
-  translate (1500, 750);
+  translate ((width*5)/6, (height*4)/5);
   rotate (radians(angle2));
   angle2 = angle2+2.5;
 
@@ -78,7 +97,7 @@ function draw() {
 
   // star 3
   push ();
-  translate (1100, 100);
+  translate ((width*2)/3, (height*1)/7);
   rotate (radians(angle3));
   angle3 = angle3+1.5;
 
@@ -89,7 +108,10 @@ function draw() {
 
   pop ();
   
+  // satellites에 중력 적용
+  gravity(sa);
 
   Engine.update(engine);
 
-}
+};
+

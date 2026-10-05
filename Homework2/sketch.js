@@ -16,6 +16,13 @@ let death = 0;
 let Stardusts = [];
 let blackholes = [];
 
+let draggedPlanet = null;
+let pressX = 0;
+let pressY = 0;
+let pressTime = 0;
+let prevMouseX = 0;
+let prevMouseY = 0;
+
 let bigBangs = [];
 let ash = [];
 
@@ -29,9 +36,9 @@ class Star {
     this.y = y;
     this.r = r;
     this.displayR = r;
-    this.c = color(random(210,255),random(210,255),random(210,255));
+    this.c = color(random(200,255),random(240, 255),random(230,255));
     this.body = Bodies.circle(this.x, this.y, this.r, {
-      restitution: 1,
+      restitution: 0.8,
       frictionAir: 0
     });
     this.bigBang = false;
@@ -57,21 +64,53 @@ class Star {
     drawingContext.shadowBlur = 50;
     drawingContext.shadowColor = this.c;
 
+    let displayR = this.displayR;
+
   if (this.bigBang) {
   let t = constrain(
-    (millis() - this.bigBangStart) / 2000,
-    0,
-    1
-  );
-  fill(lerpColor(this.c, color(255), t));
-  }
+      (millis() - this.bigBangStart) / 2000,
+      0,
+      1
+    );
   
-  else {
-  fill(this.c);
+  displayR = this.displayR * (1 + t);
   }
 
   noStroke ();
-  circle(this.pos.x, this.pos.y, this.displayR*2);
+ drawingContext.save();
+
+  drawingContext.shadowBlur = 20;
+  drawingContext.shadowColor = this.c;
+
+  fill(this.c);
+  circle(
+    this.pos.x,
+    this.pos.y,
+    displayR * 2
+  );
+
+  drawingContext.restore();
+   // 2. 내부에 흐릿한 원
+  drawingContext.save();
+
+  drawingContext.filter = "blur(100px)";
+
+  if (this.bigBang) {
+    // 빅뱅일 때 내부만 빨강
+    fill(180, 50, 80);
+  } else {
+    // 평소에는 행성 색보다 어둡게
+    fill(red(this.c)-80, green(this.c)-40, blue(this.c)-40);
+  }
+
+  circle(
+    this.pos.x,
+    this.pos.y,
+    displayR * 1.2
+  );
+
+  drawingContext.restore();
+
 
   }
 
@@ -241,23 +280,150 @@ function createPlanet() {
   galaxy.push(new Star(random(0, width), random(0, height), random(60,180)));
 }
 
+
 function mousePressed() {
+  pressX = mouseX;
+  pressY = mouseY;
+  pressTime = millis();
+
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+
+  draggedPlanet = null;
+
   for (let i = galaxy.length - 1; i >= 0; i--) {
     let planet = galaxy[i];
 
     if (planet.isClicked(mouseX, mouseY)) {
-      let pos = planet.body.position;
-
-      for (let j = 0; j < 40; j++) {
-        Stardusts.push(
-          new Stardust(pos.x, pos.y, planet.c)
-        );
-      }
-
-      Composite.remove(engine.world, planet.body);
-      galaxy.splice(i, 1);
-
+      draggedPlanet = planet;
       break;
+    }
+  }
+}
+
+function mouseDragged() {
+  if (!draggedPlanet) return;
+
+  Body.setPosition(draggedPlanet.body, {
+    x: mouseX,
+    y: mouseY
+  });
+
+  Body.setVelocity(draggedPlanet.body, {
+    x: mouseX - prevMouseX,
+    y: mouseY - prevMouseY
+  });
+
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+
+  checkBigBang();
+}
+
+function mouseReleased() {
+
+  let moveDistance = dist(
+    pressX,
+    pressY,
+    mouseX,
+    mouseY
+  );
+
+  // 클릭
+  if (moveDistance < 10) {
+
+    for (let i = galaxy.length - 1; i >= 0; i--) {
+      let planet = galaxy[i];
+
+      if (planet.isClicked(mouseX, mouseY)) {
+
+        let pos = planet.body.position;
+
+        for (let j = 0; j < 40; j++) {
+          Stardusts.push(
+            new Stardust(pos.x, pos.y, planet.c)
+          );
+        }
+
+        Composite.remove(engine.world, planet.body);
+        galaxy.splice(i, 1);
+
+        break;
+      }
+    }
+
+  // 드래그
+  } else if (draggedPlanet) {
+
+    Body.setVelocity(draggedPlanet.body, {
+      x: (mouseX - prevMouseX) * 0.5,
+      y: (mouseY - prevMouseY) * 0.5
+    });
+  }
+
+  draggedPlanet = null;
+}
+
+function checkBigBang() {
+
+  for (let i = 0; i < galaxy.length; i++) {
+    for (let j = i + 1; j < galaxy.length; j++) {
+
+      let a = galaxy[i];
+      let b = galaxy[j];
+
+      if (a.bigBang || b.bigBang) continue;
+
+      let posA = a.body.position;
+      let posB = b.body.position;
+
+      let d = dist(
+        posA.x,
+        posA.y,
+        posB.x,
+        posB.y
+      );
+
+      if (d < a.r + b.r) {
+
+        let speedA = a.body.speed;
+        let speedB = b.body.speed;
+
+        if (speedA + speedB > 5) {
+
+          let x = (posA.x + posB.x) / 2;
+          let y = (posA.y + posB.y) / 2;
+
+          Body.setVelocity(a.body, {
+            x: 0,
+            y: 0
+          });
+
+          Body.setVelocity(b.body, {
+            x: 0,
+            y: 0
+          });
+
+          Body.setAngularVelocity(a.body, 0);
+          Body.setAngularVelocity(b.body, 0);
+
+          a.bigBang = true;
+          b.bigBang = true;
+
+          a.bigBangStart = millis();
+          b.bigBangStart = millis();
+
+          for (let k = 0; k < 100; k++) {
+            ash.push({
+              x: x + random(-10, 10),
+              y: y + random(-10, 10),
+              size: random(1, 4),
+              vx: random(-1, 1),
+              vy: random(-1, 1)
+            });
+          }
+        }
+      }
     }
   }
 }
@@ -268,6 +434,7 @@ function mousePressed() {
    // put drawing code here
     background(0);
     Engine.update(engine);
+    checkBigBang();
 
     for (let i = galaxy.length - 1; i >= 0; i--) {
       let planet = galaxy[i];
@@ -288,64 +455,8 @@ function mousePressed() {
   }
 }
 
-    for (let i = 0; i < galaxy.length; i++) {
-      for (let j = i + 1; j < galaxy.length; j++) {
-      let a = galaxy[i];
-      let b = galaxy[j];
 
-        if (a.bigBang || b.bigBang) continue;
-
-      let posA = a.body.position;
-      let posB = b.body.position;
-
-      let d = dist(
-        posA.x, posA.y, posB.x, posB.y);
-
-      if (d < a.r + b.r) {
-      let speedA = a.body.speed;
-      let speedB = b.body.speed;
-
-      if (speedA + speedB > 5) {
-
-        let x = (posA.x + posB.x) / 2;
-        let y = (posA.y + posB.y) / 2;
-
-        Body.setVelocity(a.body, {
-          x: 0,
-          y: 0
-        });
-
-        Body.setVelocity(b.body, {
-          x: 0,
-          y: 0
-        });
-
-        Body.setAngularVelocity(a.body, 0);
-        Body.setAngularVelocity(b.body, 0);
-
-        a.bigBang = true;
-        b.bigBang = true;
-
-        a.bigBangStart = millis();
-        b.bigBangStart = millis();
-
-        for (let k = 0; k < 100; k++) {
-
-          ash.push({
-            x: x + random(-10, 10),
-            y: y + random(-10, 10),
-            size: random(1, 4),
-            vx: random(-1, 1),
-            vy: random(-1, 1)
-          });
-
-        }
-      }
-    }
-  }
-}
-
-// 잿가루
+// 재
 noStroke();
 fill(100);
 
@@ -402,33 +513,9 @@ for (let a of ash) {
 }
     
 
-// 빅뱅 처리
-for (let i = galaxy.length - 1; i >= 0; i--) {
-
-  let planet = galaxy[i];
-
-  if (planet.bigBang) {
-
-    let elapsed =
-      millis() - planet.bigBangStart;
-
-    // 2초 후 삭제
-    if (elapsed >= 2000) {
-
-      Composite.remove(
-        engine.world,
-        planet.body
-      );
-
-      galaxy.splice(i, 1);
-    }
-  }
-}
-
-
 if (
   flashStart > 0 &&
-  millis() - flashStart < 150
+  millis() - flashStart < 250
 ) {
   background(255);
 }
